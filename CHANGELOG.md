@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.2.0](https://github.com/LoriKarikari/terril/compare/v0.1.0...v0.2.0) (2026-10-30)
+
+
+### ⚠ BREAKING CHANGES
+
+* rename wolkpack to terril ([#30](https://github.com/LoriKarikari/terril/issues/30))
+
+### Features
+
+* **dotnet:** build ASP.NET Core and console apps ([#35](https://github.com/LoriKarikari/terril/issues/35)) ([8e58741](https://github.com/LoriKarikari/terril/commit/8e58741fed093618bfc0ffd7dbc135027e4aa886))
+* rename wolkpack to terril ([#30](https://github.com/LoriKarikari/terril/issues/30)) ([2ebfc50](https://github.com/LoriKarikari/terril/commit/2ebfc502a44d0ce8cdb7e89f618c90a952536b0d))
+* **rust:** build Rust binaries with cargo-chef ([#36](https://github.com/LoriKarikari/terril/issues/36)) ([8a98b77](https://github.com/LoriKarikari/terril/commit/8a98b7724b55ac9b65917c0a7592d9b386d68c62))
+
 ## 0.1.0 (2026-10-27)
 
 
