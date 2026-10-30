@@ -55,7 +55,7 @@ terril build -t api:dev ./my-app
 | Python | pip, uv, Poetry | Django, FastAPI, Flask |
 | Ruby | Bundler | Rails, or any Rack app with puma |
 | PHP | Composer | Laravel, or any app with `public/index.php` or `index.php` |
-| .NET | NuGet | ASP.NET Core and console apps on .NET 8, 9 and 10 |
+| .NET | NuGet | ASP.NET Core and console apps |
 | Rust | Cargo | any binary crate, including workspaces |
 | Go | Go modules | any, including apps that use cgo |
 | Static sites | none, or any Node build | plain HTML, Vite apps without a server |
@@ -71,6 +71,8 @@ PHP apps run on [FrankenPHP](https://frankenphp.dev)'s static build, which has P
 For .NET, terril publishes the project at the app root, or the only web project in the folder, such as an API next to its test projects. .NET apps run on Microsoft's chiseled images, with ICU for culture formatting unless the project sets `InvariantGlobalization`. A `global.json` that pins an SDK version picks that exact SDK.
 
 For Rust, terril builds the only binary in the crate or workspace, or the one `default-run` names. Dependencies compile in their own cached step with [cargo-chef](https://github.com/LukeMathWalker/cargo-chef), so editing your code doesn't recompile them. A version in `rust-toolchain.toml` picks that Rust version.
+
+terril builds only the Node, Python, Ruby and .NET versions that still get security fixes, by the dates on [endoflife.date](https://endoflife.date). From six months before a version's end of life, the build prints a warning with the date. Two months after it, terril refuses to build that version and names the ones it builds. Go apps build with the newest Go, because the `go` line in `go.mod` is a minimum.
 
 ## Build-time variables
 

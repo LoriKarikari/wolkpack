@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/BurntSushi/toml"
 	"golang.org/x/mod/modfile"
@@ -18,7 +19,9 @@ import (
 )
 
 type Facts struct {
-	Dir       string
+	Dir string
+	// The day to check end-of-life dates against.
+	Today     time.Time
 	Workspace *Workspace
 	// A uv workspace the Python app belongs to. Root is the build context.
 	UvWorkspace *Workspace
@@ -163,7 +166,7 @@ func Read(dir string) (*Facts, error) {
 	if st, err := os.Stat(dir); err != nil || !st.IsDir() {
 		return nil, fmt.Errorf("%s is not a directory", dir)
 	}
-	f := &Facts{Dir: dir}
+	f := &Facts{Dir: dir, Today: time.Now().UTC()}
 	var err error
 	if f.Has("package.json") {
 		if f.Workspace, err = findWorkspace(dir); err != nil {

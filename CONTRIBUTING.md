@@ -75,6 +75,8 @@ Make a folder in `e2e/testdata/` with a small app that listens on `$PORT`. Add a
 A test app can also have these files:
 
 - `expect-error` holds a message. The build must fail with it, and the app isn't started.
+- `expect-warning` holds a warning the build must print.
+- `today` holds a date like `2026-11-01`. terril builds the app as if it were that day, through the `TERRIL_TODAY` variable. Use it to test end-of-life warnings and refusals, which change with the calendar.
 - `path` holds the URL path to request. The default is `/`.
 - `app` names a subfolder to build, for monorepos.
 - `absent` lists package names that must not be in the image.

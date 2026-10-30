@@ -2,6 +2,7 @@ package pack
 
 import (
 	"fmt"
+	goversion "go/version"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -20,13 +21,30 @@ var goProvider = provider{
 	plan: planGo,
 }
 
-func planGo(f *Facts, assets []string) ([]Stage, Runtime, error) {
-	version := "1.25"
-	if f.Go.Toolchain != nil {
-		version = strings.TrimPrefix(f.Go.Toolchain.Name, "go")
-	} else if f.Go.Go != nil {
-		version = f.Go.Go.Version
+// renovate: datasource=docker depName=golang
+const goVersion = "1.27"
+
+// The go and toolchain lines in go.mod are minimums, and a newer Go builds older code the same
+// way, so terril builds with its own Go unless go.mod asks for a newer one.
+func goImageVersion(m *modfile.File) string {
+	v := "go" + goVersion
+	var wants []string
+	if m.Go != nil {
+		wants = append(wants, "go"+m.Go.Version)
 	}
+	if m.Toolchain != nil {
+		wants = append(wants, m.Toolchain.Name)
+	}
+	for _, want := range wants {
+		if lang := goversion.Lang(want); goversion.Compare(lang, v) > 0 {
+			v = lang
+		}
+	}
+	return strings.TrimPrefix(v, "go")
+}
+
+func planGo(f *Facts, assets []string) ([]Stage, Runtime, error) {
+	version := goImageVersion(f.Go)
 	pkg, err := goMainPackage(f)
 	if err != nil {
 		return nil, Runtime{}, err

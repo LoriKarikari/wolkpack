@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"runtime/debug"
 	"strings"
+	"time"
 
 	"github.com/LoriKarikari/terril/pack"
 )
@@ -72,9 +73,18 @@ func run(cmd, dir, provider, tag string, env *envFlags) error {
 	if err != nil {
 		return err
 	}
+	// Tests set the date to check end-of-life warnings and refusals without waiting for them.
+	if today := os.Getenv("TERRIL_TODAY"); today != "" {
+		if facts.Today, err = time.Parse(time.DateOnly, today); err != nil {
+			return fmt.Errorf("TERRIL_TODAY: %w", err)
+		}
+	}
 	plan, err := pack.New(facts, provider)
 	if err != nil {
 		return err
+	}
+	for _, w := range plan.Warnings {
+		fmt.Fprintln(os.Stderr, "terril: warning:", w)
 	}
 	plan.BuildEnv = env.names
 	dockerfile := plan.Dockerfile()

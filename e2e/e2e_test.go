@@ -92,6 +92,8 @@ type fixture struct {
 	dir         string
 	expect      string
 	expectError string
+	warning     string
+	today       string
 	path        string
 	absent      []string
 	buildEnv    []string
@@ -120,6 +122,8 @@ func fixtures(t *testing.T) []fixture {
 		}
 		f.expect, _ = readFile(root, "expect")
 		f.expectError, _ = readFile(root, "expect-error")
+		f.warning, _ = readFile(root, "expect-warning")
+		f.today, _ = readFile(root, "today")
 		if p, ok := readFile(root, "path"); ok {
 			f.path = p
 		}
@@ -214,7 +218,7 @@ func testApp(t *testing.T, f fixture, r *appResult) {
 	keepUntilEnd(image)
 
 	if f.expectError != "" {
-		out, err := runCmd(log, terril, "build", "-t", image, f.dir)
+		out, err := f.run(log, "build", "-t", image, f.dir)
 		switch {
 		case err == nil:
 			r.fail(t, "build succeeded but should have failed")
@@ -234,7 +238,7 @@ func testApp(t *testing.T, f fixture, r *appResult) {
 			k, _, _ := strings.Cut(kv, "=")
 			stale = append(stale, "--env", k+"=stale-"+k)
 		}
-		if _, err := runCmd(log, terril, append(append([]string{"build"}, stale...), "-t", image, f.dir)...); err != nil {
+		if _, err := f.run(log, append(append([]string{"build"}, stale...), "-t", image, f.dir)...); err != nil {
 			r.fail(t, "build failed, see %s", log.Name())
 			return
 		}
@@ -243,8 +247,13 @@ func testApp(t *testing.T, f fixture, r *appResult) {
 	for _, kv := range f.buildEnv {
 		args = append(args, "--env", kv)
 	}
-	if _, err := runCmd(log, terril, append(args, "-t", image, f.dir)...); err != nil {
+	out, err := f.run(log, append(args, "-t", image, f.dir)...)
+	if err != nil {
 		r.fail(t, "build failed, see %s", log.Name())
+		return
+	}
+	if !strings.Contains(out, f.warning) {
+		r.fail(t, "the build didn't warn %q, see %s", f.warning, log.Name())
 		return
 	}
 
@@ -280,7 +289,7 @@ func testApp(t *testing.T, f fixture, r *appResult) {
 		return
 	}
 
-	plan, err := exec.Command(terril, "plan", f.dir).Output()
+	plan, err := f.terril(context.Background(), "plan", f.dir).Output()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -547,10 +556,10 @@ func testCache(t *testing.T, f fixture) {
 	}
 	dir := filepath.Join(work, strings.TrimPrefix(f.dir, filepath.Join("testdata", f.name)))
 	log := newLog(t, f.name+".cache.log")
-	if _, err := runCmd(log, terril, "build", "-t", image, dir); err != nil {
+	if _, err := f.run(log, "build", "-t", image, dir); err != nil {
 		t.Fatalf("first build failed, see %s", log.Name())
 	}
-	plan, err := exec.Command(terril, "plan", f.dir).Output()
+	plan, err := f.terril(context.Background(), "plan", f.dir).Output()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -579,7 +588,7 @@ func testCache(t *testing.T, f fixture) {
 			t.Fatal(err)
 		}
 		start := time.Now()
-		out, err := runCmd(log, terril, "build", "-t", image, dir)
+		out, err := f.run(log, "build", "-t", image, dir)
 		secs = time.Since(start).Seconds()
 		if err != nil {
 			row[4] = "rebuild failed"
@@ -645,15 +654,24 @@ func docker(t *testing.T, args ...string) {
 	}
 }
 
-func runCmd(log *os.File, name string, args ...string) (string, error) {
+func (f fixture) run(log *os.File, args ...string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
 	defer cancel()
 	var out bytes.Buffer
-	cmd := exec.CommandContext(ctx, name, args...)
+	cmd := f.terril(ctx, args...)
 	cmd.Stdout = io.MultiWriter(&out, log)
 	cmd.Stderr = cmd.Stdout
 	err := cmd.Run()
 	return out.String(), err
+}
+
+// A test app's today file fixes the date, so end-of-life tests don't change with the calendar.
+func (f fixture) terril(ctx context.Context, args ...string) *exec.Cmd {
+	cmd := exec.CommandContext(ctx, terril, args...)
+	if f.today != "" {
+		cmd.Env = append(os.Environ(), "TERRIL_TODAY="+f.today)
+	}
+	return cmd
 }
 
 func writeTable(name string, header []string, rows [][]string) error {

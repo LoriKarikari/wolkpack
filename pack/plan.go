@@ -21,6 +21,7 @@ type Plan struct {
 	Runtime  Runtime
 	// Names of variables the build steps read. Their values never reach the image.
 	BuildEnv []string
+	Warnings []string
 }
 
 type Runtime struct {

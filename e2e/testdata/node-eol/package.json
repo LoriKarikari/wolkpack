@@ -1,0 +1,4 @@
+{
+  "name": "node-eol",
+  "scripts": { "start": "node server.js" }
+}

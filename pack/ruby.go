@@ -10,7 +10,9 @@ var rubyProvider = provider{
 		}
 		return Primary
 	},
-	plan: planRuby,
+	plan:     planRuby,
+	versions: &rubyVersions,
+	version:  rubyVersion,
 }
 
 const bundlePath = "/usr/local/bundle"
@@ -23,13 +25,17 @@ var rubyEnv = []Env{
 	{"RACK_ENV", "production"},
 }
 
+func rubyVersion(f *Facts) (string, error) {
+	return rubyVersions.pick(f.Ruby.Version, f.Today)
+}
+
 func planRuby(f *Facts, assets []string) ([]Stage, Runtime, error) {
 	r := f.Ruby
 	// Without bin/rails, the rails command acts as the app generator, not the app.
 	if r.Gems["railties"] && !f.Has("bin/rails") {
 		return nil, Runtime{}, fmt.Errorf("this is a Rails app but bin/rails is missing; commit the bin/ folder that rails new created")
 	}
-	v, err := pickVersion("ruby", r.Version, []string{"4.0", "3.4", "3.3"}, "4.0")
+	v, err := rubyVersion(f)
 	if err != nil {
 		return nil, Runtime{}, err
 	}

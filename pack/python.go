@@ -15,7 +15,9 @@ var pythonProvider = provider{
 		}
 		return Primary
 	},
-	plan: planPython,
+	plan:     planPython,
+	versions: &pythonVersions,
+	version:  pythonVersion,
 }
 
 const venv = "/app/.venv"
@@ -51,11 +53,15 @@ var pythonRuntimeExcludes = []string{
 	"*/bin/pip*",
 }
 
+func pythonVersion(f *Facts) (string, error) {
+	return pythonVersions.pick(f.Python.Version, f.Today)
+}
+
 var venvPath = Env{"PATH", venv + "/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"}
 
 func planPython(f *Facts, assets []string) ([]Stage, Runtime, error) {
 	py := f.Python
-	v, err := pickVersion("python", py.Version, []string{"3.14", "3.13", "3.12", "3.11"}, "3.13")
+	v, err := pythonVersion(f)
 	if err != nil {
 		return nil, Runtime{}, err
 	}

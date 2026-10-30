@@ -15,10 +15,10 @@ var dotnetProvider = provider{
 		}
 		return Primary
 	},
-	plan: planDotNet,
+	plan:     planDotNet,
+	versions: &dotnetVersions,
+	version:  dotnetVersion,
 }
-
-var dotnetVersions = []string{"8.0", "9.0", "10.0"}
 
 const dotnetImages = "mcr.microsoft.com/dotnet/"
 
@@ -45,11 +45,23 @@ const portHookProject = `<Project Sdk="Microsoft.NET.Sdk">
 </Project>
 `
 
+func dotnetVersion(f *Facts) (string, error) {
+	d := f.DotNet
+	v, ok := strings.CutPrefix(d.TargetFramework, "net")
+	if _, known := dotnetVersions.release(v); !ok || !known {
+		return "", fmt.Errorf("%s targets %q; terril builds net%s", d.Project, d.TargetFramework, strings.Join(dotnetVersions.supported(f.Today), ", net"))
+	}
+	if _, err := dotnetVersions.pick(v, f.Today); err != nil {
+		return "", fmt.Errorf("%s: %w", d.Project, err)
+	}
+	return v, nil
+}
+
 func planDotNet(f *Facts, assets []string) ([]Stage, Runtime, error) {
 	d := f.DotNet
-	version, ok := strings.CutPrefix(d.TargetFramework, "net")
-	if !ok || !slices.Contains(dotnetVersions, version) {
-		return nil, Runtime{}, fmt.Errorf("%s targets %q; terril builds net%s", d.Project, d.TargetFramework, strings.Join(dotnetVersions, ", net"))
+	version, err := dotnetVersion(f)
+	if err != nil {
+		return nil, Runtime{}, err
 	}
 	sdk := dotnetImages + "sdk:" + version
 	if d.SDKVersion != "" {

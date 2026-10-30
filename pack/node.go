@@ -18,14 +18,21 @@ var nodeProvider = provider{
 		}
 		return Primary
 	},
-	plan: planNode,
+	plan:     planNode,
+	versions: &nodeVersions,
+	version: func(f *Facts) (string, error) {
+		if f.Node.Manager == "bun" {
+			return "", nil
+		}
+		return nodeVersion(f)
+	},
 	assetStage: func(f *Facts, name string) (Stage, error) {
 		return nodeBuild(f, name, nil, false)
 	},
 }
 
 type nodeManager struct {
-	image               func(n *Node) (string, error)
+	image               func(f *Facts) (string, error)
 	setup               func(n *Node) []Step
 	install, frozen     string
 	prune, cache        string
@@ -94,7 +101,7 @@ var nodeManagers = map[string]nodeManager{
 		},
 	},
 	"bun": {
-		image:   func(n *Node) (string, error) { return "oven/bun:" + bunVersion(n) + "-slim", nil },
+		image:   func(f *Facts) (string, error) { return "oven/bun:" + bunVersion(f.Node) + "-slim", nil },
 		install: "bun install", frozen: "bun install --frozen-lockfile",
 		prune: "rm -rf node_modules && bun install --production --frozen-lockfile", cache: "/root/.bun/install/cache",
 		run: "bun run", start: "bun run start", runFile: "bun", exec: "bunx",
@@ -157,13 +164,13 @@ func nodeModulesExcludes(f *Facts) []string {
 	return excludes
 }
 
-func nodeVersion(n *Node) (string, error) {
-	return pickVersion("node", n.Version, []string{"26", "24", "22"}, "24")
+func nodeVersion(f *Facts) (string, error) {
+	return nodeVersions.pick(f.Node.Version, f.Today)
 }
 
 // Trixie matches distroless debian13, so native modules built here load at runtime.
-func nodeImage(n *Node) (string, error) {
-	v, err := nodeVersion(n)
+func nodeImage(f *Facts) (string, error) {
+	v, err := nodeVersion(f)
 	return "node:" + v + "-trixie-slim", err
 }
 
@@ -173,7 +180,7 @@ func nodeBuild(f *Facts, name string, assets []string, prune bool) (Stage, error
 	if !ok {
 		return Stage{}, fmt.Errorf("%s isn't supported yet; use npm, pnpm, yarn or bun", n.Manager)
 	}
-	image, err := m.image(n)
+	image, err := m.image(f)
 	if err != nil {
 		return Stage{}, err
 	}
@@ -303,7 +310,7 @@ func nodeStart(f *Facts) (Cmd, error) {
 // Distroless has no shell or npm, so the start script must be one node call, or one call to a
 // package bin that package-lock.json maps to a file. check verifies that file is a Node script.
 func distrolessNode(f *Facts) (image string, env []Env, cmd Cmd, check *Run, ok bool) {
-	v, _ := nodeVersion(f.Node)
+	v, _ := nodeVersion(f)
 	if f.needsDebianRuntime() || nodeManagers[f.Node.Manager].runFile != "node" || strings.Contains(v, ".") {
 		return "", nil, nil, nil, false
 	}
@@ -341,7 +348,7 @@ func planNode(f *Facts, assets []string) ([]Stage, Runtime, error) {
 			Env:    append([]Env{{"NODE_ENV", "production"}, {"HOST", "0.0.0.0"}}, fw.env...),
 			Cmd:    append(Cmd{"node"}, fw.cmd...),
 		}
-		if v, _ := nodeVersion(f.Node); !f.needsDebianRuntime() && !strings.Contains(v, ".") {
+		if v, _ := nodeVersion(f); !f.needsDebianRuntime() && !strings.Contains(v, ".") {
 			rt.From = "gcr.io/distroless/nodejs" + v + "-debian13"
 			rt.Cmd[0] = "/nodejs/bin/node"
 		}
